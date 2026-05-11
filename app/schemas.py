@@ -1,83 +1,78 @@
-from datetime import datetime
+from pydantic import BaseModel, Field, EmailStr, field_validator
 import re
-from pydantic import BaseModel, EmailStr, Field, field_validator
-from pydantic import BaseModel
+
 
 class UserCreate(BaseModel):
     username: str = Field(
         ...,
         min_length=3,
-        max_length=50,
-        pattern=r"^[a-zA-Z0-9_]+$",
-        description="Логін"
+        max_length=30,
+        description="Логін: 3-30 символів, лише латиниця, цифри та _"
     )
 
-    email: EmailStr = Field(...)
+    email: EmailStr
 
     password: str = Field(
         ...,
         min_length=8,
-        max_length=128,
-        description="Пароль"
+        max_length=128
     )
 
     full_name: str = Field(
         ...,
         min_length=2,
-        max_length=150,
-        description="Повне ім'я"
+        max_length=100
     )
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value):
+        if not re.match(r"^[a-zA-Z0-9_]+$", value):
+            raise ValueError("Логін може містити лише латинські літери, цифри та _")
+        return value
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, value):
+        if re.search(r"[<>&\"']", value):
+            raise ValueError("Ім’я не може містити HTML-символи")
+        return value.strip()
 
     @field_validator("password")
     @classmethod
-    def validate_password_strength(cls, v):
-        if not re.search(r"[A-Z]", v):
+    def validate_password_strength(cls, value):
+        if not re.search(r"[A-Z]", value):
             raise ValueError("Пароль має містити хоча б одну велику літеру")
-        if not re.search(r"[a-z]", v):
+        if not re.search(r"[a-z]", value):
             raise ValueError("Пароль має містити хоча б одну малу літеру")
-        if not re.search(r"[0-9]", v):
+        if not re.search(r"\d", value):
             raise ValueError("Пароль має містити хоча б одну цифру")
-        return v
-
-class UserResponse(BaseModel):
-    id: int
-    username: str
-    email: str
-    full_name: str
-    is_active: bool
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
+        return value
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+class CommentCreate(BaseModel):
+    text: str = Field(..., min_length=1, max_length=300)
 
-
-class LoginResponse(BaseModel):
-    message: str
-    user_id: int
-    username: str
-    roles: list[str] = []
+    @field_validator("text")
+    @classmethod
+    def validate_text(cls, value):
+        if re.search(r"[<>&\"']", value):
+            raise ValueError("HTML-теги та спеціальні символи заборонені")
+        return value.strip()
 
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
- 
- 
+
+
 class TokenRefreshRequest(BaseModel):
     refresh_token: str
- 
- 
+
+
 class UserInfo(BaseModel):
     id: int
     username: str
     email: str
     full_name: str
     role: str
- 
-    class Config:
-        from_attributes = True
-

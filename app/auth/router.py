@@ -5,15 +5,24 @@ from jose import JWTError
 from app.database import get_db
 from app.models import User
 from app.auth.jwt_handler import create_access_token, create_refresh_token, verify_token
+
 from app.auth.dependencies import get_current_user
 from app.schemas import TokenResponse, TokenRefreshRequest, UserInfo
 from app.security import verify_password
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+from fastapi import Request
+from app.middleware.rate_limiter import limiter
 
-@router.post("/login", response_model=TokenResponse)
-def login(username: str, password: str, db: Session = Depends(get_db)):
+@router.post("/login")
+@limiter.limit("5/minute")
+async def login(
+    request: Request,
+    username: str,
+    password: str,
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.username == username).first()
 
     if not user:
@@ -38,7 +47,6 @@ def login(username: str, password: str, db: Session = Depends(get_db)):
         refresh_token=refresh_token,
     )
 
-
 @router.post("/refresh", response_model=TokenResponse)
 def refresh_token(body: TokenRefreshRequest, db: Session = Depends(get_db)):
     try:
@@ -57,7 +65,6 @@ def refresh_token(body: TokenRefreshRequest, db: Session = Depends(get_db)):
 
     user_id = int(payload["sub"])
     user = db.query(User).filter(User.id == user_id).first()
-
     if not user:
         raise HTTPException(status_code=404, detail="Користувача не знайдено")
 
@@ -70,8 +77,6 @@ def refresh_token(body: TokenRefreshRequest, db: Session = Depends(get_db)):
         access_token=new_access,
         refresh_token=new_refresh,
     )
-
-
 @router.get("/me", response_model=UserInfo)
 def get_me(current_user: User = Depends(get_current_user)):
     role = current_user.roles[0].name if current_user.roles else "student"
