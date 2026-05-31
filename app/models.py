@@ -3,6 +3,9 @@ from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, Foreig
 from sqlalchemy.orm import relationship
 from app.database import Base
 
+# Імпортуємо наші криптографічні функції
+from app.crypto.encryption import encrypt_field, decrypt_field
+
 # Зв’язок User <-> Role (M:N)
 user_roles = Table(
     "user_roles",
@@ -25,7 +28,10 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, nullable=False, index=True)
-    email = Column(String(100), unique=True, nullable=False, index=True)
+    
+    # Змінюємо реальну колонку в БД: вона зберігатиме зашифрований текст
+    _email = Column("email", String(255), unique=True, nullable=False, index=True)
+    
     full_name = Column(String(150), nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
@@ -37,6 +43,16 @@ class User(Base):
     roles = relationship("Role", secondary=user_roles, back_populates="users")
     group = relationship("Group", back_populates="students")
     grades = relationship("Grade", back_populates="student", foreign_keys="Grade.student_id")
+
+    # Механізм прозорого розшифрування при зчитуванні з БД
+    @property
+    def email(self):
+        return decrypt_field(self._email)
+
+    # Механізм прозорого шифрування при записі в БД
+    @email.setter
+    def email(self, value):
+        self._email = encrypt_field(value)
 
     def __repr__(self):
         return f"<User {self.username}>"
