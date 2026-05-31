@@ -1,18 +1,35 @@
+version: '3.8'
+
 services:
   api:
     build: .
-    container_name: dean_office_api
-    ports:
-      - "3010:3010"
-    volumes:
-      - .:/app_code
-      - db_data:/app_code/data
+    image: information-security-practice-api:latest
     environment:
-      - PYTHONUNBUFFERED=1
-      - DATABASE_URL=sqlite:////data/dekanat.db
-      - JWT_SECRET_KEY=my-dev-secret-key-32-chars-long!!
-      - ENCRYPTION_KEY=XjcpYW8ScU3P6SLKATf8XhRsFW1TCR6SPgBKamv7PII=
+      - DATABASE_URL=sqlite:///./data/dekanat.db
+      - JWT_SECRET_KEY=local-dev-secret-key-for-labs-12345
+      - ENCRYPTION_KEY=b1U4S09ScmVjZXB0X2tleV9mb3JfZmVybmV0X29rPQ==
+    volumes:
+      # Замінюємо локальну папку на ізольований Docker-Volume
+      - db_data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
 
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+
+# Обов'язково оголошуємо наш Volume в кінці файлу
 volumes:
   db_data:

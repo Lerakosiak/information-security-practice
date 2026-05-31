@@ -9,3 +9,5 @@ venv/
 .idea/
 .vscode/
 backups/
+nginx/certs/*
+bandit_report.json
